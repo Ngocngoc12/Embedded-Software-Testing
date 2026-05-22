@@ -194,8 +194,7 @@ python -m pytest ShopeeFood_Automation_Test.py -v -n 4
 
 ---
 
-## 📊 Kết quả thực thi cuối cùng (Phiên bản Hoàn chỉnh v6)
-
+## 📊 Kết quả thực thi cuối cùng 
 - **Kết quả tổng quát**: 23/23 Test Cases đã được xử lý triệt để (Tất cả đều PASS hoặc SKIP hợp lệ).
 - **Phân tích chi tiết**:
   - **Nhóm CF1 (Tìm kiếm)**: **PASSED 100%**. Việc quét toàn bộ thẻ input qua JS/Tag name đã xử lý triệt để thiết kế dị của ShopeeFood.
