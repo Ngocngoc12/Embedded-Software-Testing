@@ -467,8 +467,9 @@ class TC_CF1_SearchFilter(ShoeeFoodTestBase):
                     rate_el = self.driver.find_element(By.CSS_SELECTOR, "div.microsite-point-stat span:first-child, div.microsite-point-stat")
                     rate_text = rate_el.text.strip().replace(',', '.')
                     rate_val = float(rate_text)
-                    print(f"  -> [PASS] Diem Rate tren Foody la: {rate_val}/10")
-                    self.assertGreaterEqual(rate_val, 8.0, "TC06 FAIL: Diem Rate thuc te tren Foody < 8.0 (tuong duong 4 Sao)")
+                    shopee_rate = rate_val / 2.0
+                    print(f"  -> [PASS] Diem Rate Foody: {rate_val}/10 -> Quy doi ShopeeFood: {shopee_rate}/5 Sao")
+                    self.assertGreaterEqual(shopee_rate, 4.0, f"TC06 FAIL: Diem Rate quy doi < 4.0 Sao (Thuc te: {shopee_rate})")
                 except Exception as e:
                     print(f"  -> [SKIP] Foody khong co du lieu Rate cho quan nay.")
                 

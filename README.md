@@ -28,7 +28,7 @@ graph TD
 | **TC03** | Ký tự đặc biệt | `"@#$%^&*()"` | Không crash (500), không có lỗi JS | Boundary - ký tự ngoài thông thường |
 | **TC04** | Bỏ trống ô tìm kiếm | `""` (Enter không nhập) | Không crash, xử lý gracefully | Boundary - giá trị rỗng |
 | **TC05** | Lọc theo khu vực | Chọn "Cầu Giấy" | Kết quả hiển thị quán tại khu vực đó | Functional Testing |
-| **TC06** | Lọc và Verify Rating | Rating ≥ 4 sao | Dùng Foody link chéo để xác minh quán hiển thị đầu tiên có Rate ≥ 8.0/10 | Cross-validation |
+| **TC06** | Lọc và Verify Rating | Rating ≥ 4 sao | Lấy điểm Foody (thang 10), quy đổi về thang 5 và xác minh ≥ 4.0 Sao | Cross-validation |
 | **TC07** | Lọc theo khoảng giá | Chọn khoảng giá | Kết quả đúng khoảng giá | Functional Testing |
 
 ---
