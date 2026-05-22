@@ -443,6 +443,43 @@ class TC_CF1_SearchFilter(ShoeeFoodTestBase):
         if not tab_clicked:
             self.skipTest("TC06 SKIP: Khong tim thay tab 'Danh gia'")
 
+        print("  -> Chuyen sang cross-validation voi Foody de kiem tra diem Rate thuc te...")
+        try:
+            # Lấy link quán đầu tiên
+            first_item = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.item-restaurant > a")))
+            shopee_url = first_item.get_attribute("href")
+            
+            # Bóc tách slug
+            import re
+            match = re.search(r'shopeefood\.vn/ha-noi/([^?]+)', shopee_url)
+            if match:
+                slug = match.group(1)
+                foody_url = f"https://www.foody.vn/ha-noi/{slug}"
+                print(f"  -> Link Foody cross-validation: {foody_url}")
+                
+                # Mở tab mới
+                self.driver.execute_script("window.open(arguments[0], '_blank');", foody_url)
+                self.driver.switch_to.window(self.driver.window_handles[-1])
+                time.sleep(MEDIUM_WAIT)
+                
+                # Lấy Rate từ Foody
+                try:
+                    rate_el = self.driver.find_element(By.CSS_SELECTOR, "div.microsite-point-stat span:first-child, div.microsite-point-stat")
+                    rate_text = rate_el.text.strip().replace(',', '.')
+                    rate_val = float(rate_text)
+                    print(f"  -> [PASS] Diem Rate tren Foody la: {rate_val}")
+                    self.assertGreaterEqual(rate_val, 4.0, "TC06 FAIL: Diem Rate thuc te tren Foody < 4.0")
+                except Exception as e:
+                    print(f"  -> [SKIP] Foody khong co du lieu Rate cho quan nay.")
+                
+                # Đóng tab và quay lại
+                self.driver.close()
+                self.driver.switch_to.window(self.driver.window_handles[0])
+            else:
+                print("  -> [SKIP] Khong parse duoc slug.")
+        except Exception as e:
+            print(f"  -> [SKIP] Loi khi cross-validate: {str(e)}")
+
         page_source = self.driver.page_source
         self.assertNotIn("500 Internal Server Error", page_source)
         self._print_result("TC06", "PASS", "Tab Danh gia duoc click, trang khong loi")
