@@ -676,7 +676,7 @@ class TC_CF2_CartManagement(ShoeeFoodTestBase):
         print("\n[TC08] BVA - Them 1 mon (bien min = 1)")
         ok = self._open_restaurant_page("ga ran")
         if not ok:
-            self.skipTest("TC08 SKIP: Khong vao duoc trang quan an")
+            self.fail("TC08 FAILED: Khong vao duoc trang quan an")
 
         add_btn = self._find_add_button()
         if add_btn is None:
@@ -684,7 +684,7 @@ class TC_CF2_CartManagement(ShoeeFoodTestBase):
             btns = self.driver.find_elements(By.TAG_NAME, "button")
             btn_info = [(b.get_attribute("class"), b.text[:30]) for b in btns if b.is_displayed()][:10]
             print(f"  -> Buttons hien thi: {btn_info}")
-            self.skipTest("TC08 SKIP: Khong tim thay nut them mon (menu co the chua load)")
+            self.fail("TC08 FAILED: Khong tim thay nut them mon (menu co the chua load)")
 
         self.driver.execute_script("arguments[0].scrollIntoView(true);", add_btn)
         add_btn.click()
@@ -706,7 +706,7 @@ class TC_CF2_CartManagement(ShoeeFoodTestBase):
         print("\n[TC09] BVA - Tang so luong len gia tri hop le")
         ok = self._open_restaurant_page("tra sua")
         if not ok:
-            self.skipTest("TC09 SKIP: Khong vao duoc trang quan an")
+            self.fail("TC09 FAILED: Khong vao duoc trang quan an")
 
         # Thêm 3 lần (dùng JS click để xuyên qua Overlay)
         success_count = 0
@@ -722,7 +722,7 @@ class TC_CF2_CartManagement(ShoeeFoodTestBase):
         page_source = self.driver.page_source
         self.assertNotIn("500 Internal Server Error", page_source)
         if success_count == 0:
-            self.skipTest("TC09 SKIP: Khong tim thay nut '+' - Trang quan co the can dang nhap de hien thi menu")
+            self.fail("TC09 FAILED: Khong tim thay nut '+' - Trang quan co the can dang nhap de hien thi menu")
         self._print_result("TC09", "PASS", f"Da click them {success_count} lan, khong crash")
 
     def test_TC10_decrease_to_zero_BVA_boundary(self):
@@ -736,12 +736,12 @@ class TC_CF2_CartManagement(ShoeeFoodTestBase):
         print("\n[TC10] BVA - Giam ve 0 -> Xoa mon (bien = 0)")
         ok = self._open_restaurant_page("com rang")
         if not ok:
-            self.skipTest("TC10 SKIP: Khong vao duoc trang quan an")
+            self.fail("TC10 FAILED: Khong vao duoc trang quan an")
 
         # Thêm 1 món trước
         add_btn = self._find_add_button()
         if add_btn is None:
-            self.skipTest("TC10 SKIP: Khong tim thay nut them mon")
+            self.fail("TC10 FAILED: Khong tim thay nut them mon")
         self.driver.execute_script("arguments[0].click();", add_btn)  # JS click tránh Overlay
         time.sleep(SHORT_WAIT)
 
@@ -783,11 +783,11 @@ class TC_CF2_CartManagement(ShoeeFoodTestBase):
         print("\n[TC11] BVA - So luong am (-1) -> INVALID")
         ok = self._open_restaurant_page("bun bo")
         if not ok:
-            self.skipTest("TC11 SKIP: Khong vao duoc trang quan an")
+            self.fail("TC11 FAILED: Khong vao duoc trang quan an")
 
         add_btn = self._find_add_button()
         if not add_btn:
-            self.skipTest("TC11 SKIP: Khong tim thay nut them mon (can dang nhap)")
+            self.fail("TC11 FAILED: Khong tim thay nut them mon (can dang nhap)")
             
         self.driver.execute_script("arguments[0].click();", add_btn)
         time.sleep(SHORT_WAIT)
@@ -829,11 +829,11 @@ class TC_CF2_CartManagement(ShoeeFoodTestBase):
         print("\n[TC12] BVA - So luong MAX (bien tren = 99)")
         ok = self._open_restaurant_page("banh mi")
         if not ok:
-            self.skipTest("TC12 SKIP: Khong vao duoc trang quan an")
+            self.fail("TC12 FAILED: Khong vao duoc trang quan an")
 
         add_btn = self._find_add_button()
         if not add_btn:
-            self.skipTest("TC12 SKIP: Khong tim thay nut them mon (can dang nhap)")
+            self.fail("TC12 FAILED: Khong tim thay nut them mon (can dang nhap)")
             
         self.driver.execute_script("arguments[0].click();", add_btn)
         time.sleep(SHORT_WAIT)
@@ -885,11 +885,11 @@ class TC_CF2_CartManagement(ShoeeFoodTestBase):
         print("\n[TC13] Kiem tra tong tien thanh toan chinh xac")
         ok = self._open_restaurant_page("com")
         if not ok:
-            self.skipTest("TC13 SKIP: Khong vao duoc trang quan an")
+            self.fail("TC13 FAILED: Khong vao duoc trang quan an")
 
         add_btn = self._find_add_button()
         if not add_btn:
-            self.skipTest("TC13 SKIP: Khong tim thay nut them mon (can dang nhap)")
+            self.fail("TC13 FAILED: Khong tim thay nut them mon (can dang nhap)")
             
         self.driver.execute_script("arguments[0].click();", add_btn)
         time.sleep(SHORT_WAIT)
