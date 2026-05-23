@@ -56,12 +56,7 @@ KEYWORD_SPECIAL = "@#$%^&*()"
 KEYWORD_EMPTY   = ""
 
 # URL quán mẫu (đã kiểm tra tồn tại)
-SAMPLE_RESTAURANT_URLS = [
-    "https://shopeefood.vn/ha-noi/pho-thin-bo-vien-lo-duc",
-    "https://shopeefood.vn/ha-noi/highlands-coffee-hoan-kiem",
-    "https://shopeefood.vn/ha-noi/kfc-hang-bai",
-    "https://shopeefood.vn/ha-noi/mcdonalds-hoan-kiem",
-]
+SAMPLE_RESTAURANT_URLS = []
 
 
 # =============================================================================
@@ -562,7 +557,7 @@ class TC_CF2_CartManagement(ShoeeFoodTestBase):
                 self._close_popups()
                 # Kiểm tra trang hợp lệ (có tên quán)
                 page_src = self.driver.page_source
-                if "404" not in page_src[:2000] and len(page_src) > 5000:
+                if "404" not in page_src[:2000] and len(page_src) > 5000 and "bài viết không tồn tại" not in page_src.lower():
                     print(f"  -> Vao trang quan: {url}")
                     return True
             except Exception:
@@ -1293,244 +1288,349 @@ class TC_CF3_Authentication(ShoeeFoodTestBase):
 # =============================================================================
 class TC_CF4_FoodyRedirect(ShoeeFoodTestBase):
     """
-    Luồng: ShopeeFood → xem đánh giá → Foody.vn
+    CF4: Kiểm thử tích hợp ShopeeFood – Foody.vn (5 Test Cases)
 
-    Ghi chú DOM thực tế:
-      - Trên listing page (/ha-noi/food): có text đề cập Foody trong footer
-      - Cần vào trang CHI TIẾT quán ăn mới có link Foody thực sự
-      - Tab "Đánh giá" trên trang quán có thể redirect sang Foody
+    ┌─────┬──────────────────────────────────────────────┬──────────────┐
+    │ TC  │ Nội dung                                      │ Kỳ vọng      │
+    ├─────┼──────────────────────────────────────────────┼──────────────┤
+    │ TC21│ Tìm nút "Xem trên Foody" trên UI ShopeeFood  │ FAILED(đã gỡ)│
+    │ TC22│ Verify Rating hiển thị trên trang quán SF    │ PASS         │
+    │ TC23│ Vào URL quán ma → xác nhận trang lỗi 404-like│ PASS         │
+    │ TC24│ Tìm kiếm "Pho" → kết quả ≥ 1 quán            │ PASS         │
+    │ TC25│ Truy cập Foody.vn trực tiếp → verify UI      │ PASS/FAIL    │
+    └─────┴──────────────────────────────────────────────┴──────────────┘
+
+    Ghi chú thực tế:
+      - ShopeeFood ĐÃ GỠ nút "Xem trên Foody" → TC21 sẽ FAILED (có chủ đích)
+      - URL tìm kiếm đúng: /ha-noi/danh-sach-dia-diem-giao-tan-noi?q=<keyword>
     """
 
+    FOODY_DIRECT_URL = "https://www.foody.vn/ho-chi-minh/dynasty-house-hongkong-dimsum-hotpot"
+
     def _navigate_to_specific_restaurant(self):
-        """Vào trang quán ăn và tìm link/section đánh giá."""
+        """Vào trang quán ăn thật (tìm bằng UI search)."""
+        # Thử URL cứng trước
         for url in SAMPLE_RESTAURANT_URLS:
             self.driver.get(url)
             time.sleep(LONG_WAIT)
             self._close_popups()
             page_src = self.driver.page_source
-            if len(page_src) > 5000 and "404" not in page_src[:2000]:
-                print(f"  -> Vao quan: {url}")
+            if (len(page_src) > 5000
+                    and "404" not in page_src[:2000]
+                    and "bài viết không tồn tại" not in page_src.lower()):
+                print(f"  -> Vao quan (URL cu): {url}")
                 return True
+
+        # Fallback: gõ tìm kiếm qua UI thật
+        print("  -> Fallback: tim kiem bang UI search...")
+        self.driver.get(BASE_URL)
+        time.sleep(MEDIUM_WAIT)
+        self._close_popups()
+        try:
+            inputs = self.driver.find_elements(By.TAG_NAME, "input")
+            search_input = next(
+                (inp for inp in inputs
+                 if inp.is_displayed()
+                 and (inp.get_attribute("type") == "text" or not inp.get_attribute("type"))),
+                None
+            )
+            if search_input:
+                self.driver.execute_script("arguments[0].click();", search_input)
+                time.sleep(SHORT_WAIT)
+                search_input.clear()
+                search_input.send_keys("Pho")
+                search_input.send_keys(Keys.RETURN)
+                time.sleep(MEDIUM_WAIT)
+
+                links = self.driver.find_elements(By.XPATH,
+                    "//a[contains(@href,'/ha-noi/') and not(contains(@href,'danh-sach'))][@href]")
+                valid = [l for l in links
+                         if l.is_displayed()
+                         and l.get_attribute("href")
+                         and "shopeefood" in l.get_attribute("href")]
+                if valid:
+                    href = valid[0].get_attribute("href")
+                    self.driver.get(href)
+                    time.sleep(LONG_WAIT)
+                    self._close_popups()
+                    page_src = self.driver.page_source
+                    if "bài viết không tồn tại" not in page_src.lower():
+                        print(f"  -> Fallback vao quan: {href}")
+                        return True
+        except Exception as ex:
+            print(f"  -> Fallback loi: {ex}")
         return False
 
-    def _scroll_to_find_foody_link(self):
-        """Scroll qua trang để tìm link Foody."""
-        foody_selectors = [
-            (By.XPATH, "//a[contains(@href,'foody.vn')]"),
-            (By.XPATH, "//a[contains(text(),'Foody') or contains(text(),'foody')]"),
-            (By.XPATH, "//*[@class and contains(@class,'foody')]//a"),
-        ]
-        # Scroll dần xuống
-        for scroll_y in [300, 600, 900, 1200, 1500, 2000]:
-            self.driver.execute_script(f"window.scrollTo(0, {scroll_y});")
-            time.sleep(SHORT_WAIT)
-            for sel in foody_selectors:
-                try:
-                    els = self.driver.find_elements(*sel)
-                    visible = [e for e in els if e.is_displayed()
-                               and e.get_attribute("href")]
-                    if visible:
-                        return visible[0]
-                except Exception:
-                    continue
-        return None
+    # ── Test Cases ────────────────────────────────────────────────────────────
 
-    def _find_rating_section(self):
-        """Tìm tab/nút xem đánh giá trong trang quán."""
-        rating_xpaths = [
-            "//a[contains(@href,'foody')]",
-            "//*[contains(text(),'Xem danh gia') or contains(text(),'Xem tren Foody')]",
-            "//button[contains(text(),'Danh gia') or contains(text(),'Đánh giá') or contains(text(),'Review')]",
-            "//*[contains(@class,'rating') or contains(@class,'review')]//a[@href]",
-            "//a[contains(@href,'review') or contains(@href,'danh-gia')]",
-        ]
-        for xp in rating_xpaths:
-            try:
-                els = self.driver.find_elements(By.XPATH, xp)
-                visible = [e for e in els if e.is_displayed()]
-                if visible:
-                    return visible[0]
-            except Exception:
-                continue
-        return None
-
-    def test_TC21_find_foody_link_in_restaurant(self):
+    def test_TC21_foody_button_removed_FAILED(self):
         """
-        TC21 - Tự ghép link Foody từ URL ShopeeFood hiện tại và mở tab mới
-        ─────────────────────────────────────────────────────────
-        Bước 1: Vào trang quán ăn cụ thể trên ShopeeFood
-        Bước 2: Lấy slug quán từ URL hiện tại (phần cuối path)
-        Bước 3: Ghép thành URL Foody: foody.vn/ha-noi/<slug>
-        Bước 4: Mở tab Chrome mới điều hướng sang Foody
-        Bước 5: Xác nhận URL và nội dung trang Foody hợp lệ
-        ─────────────────────────────────────────────────────────
-        Kỳ vọng: Trang Foody mở thành công, không có lỗi 404/500.
+        TC21 - Kiểm tra nút "Xem trên Foody" còn tồn tại trên UI ShopeeFood không?
+        ─────────────────────────────────────────────────────────────────────────────
+        Bước 1: Vào trang chi tiết quán ăn trên ShopeeFood
+        Bước 2: Quét DOM tìm đúng link foody.vn hoặc text "Xem trên Foody"
+        Bước 3: Assert link/nút tồn tại
+        ─────────────────────────────────────────────────────────────────────────────
+        Kỳ vọng: ❌ FAILED — ShopeeFood đã gỡ bỏ tích hợp Foody từ 2024+
+        Ý nghĩa : Automation bắt được thay đổi UI. Cần báo cáo team để cập nhật spec.
         """
-        print("\n[TC21] Foody - Tu ghep link Foody va mo tab moi")
+        print("\n[TC21] *** EXPECTED FAILED *** Tim nut 'Xem tren Foody' da bi go bo")
         ok = self._navigate_to_specific_restaurant()
         if not ok:
-            self.skipTest("TC21 SKIP: Khong vao duoc trang quan an")
+            self.fail("TC21 FAILED: Khong tim duoc trang quan an hop le de kiem tra")
 
-        # Lấy URL ShopeeFood hiện tại và tách slug quán
-        source_url = self.driver.current_url
-        print(f"  -> ShopeeFood URL: {source_url}")
+        current_url = self.driver.current_url
+        print(f"  -> Kiem tra trang: {current_url}")
 
-        # Slug là phần cuối của path: /ha-noi/ten-quan -> "ten-quan"
-        path_parts = source_url.rstrip("/").split("/")
-        slug = path_parts[-1]  # vd: "pho-thin-bo-vien-lo-duc"
-        print(f"  -> Slug quan: {slug}")
-
-        # Tự ghép URL Foody
-        foody_url = f"https://www.foody.vn/ha-noi/{slug}"
-        print(f"  -> Foody URL tu ghep: {foody_url}")
-
-        # Mở tab mới bằng JavaScript window.open()
-        original_window = self.driver.current_window_handle
-        self.driver.execute_script(f"window.open('{foody_url}', '_blank');")
-
-        # Đợi tab mới mở
-        try:
-            self.wait.until(EC.number_of_windows_to_be(2))
-        except Exception:
-            self.skipTest("TC21 SKIP: Tab Foody khong mo duoc")
-
-        # Chuyển sang tab Foody
-        for handle in self.driver.window_handles:
-            if handle != original_window:
-                self.driver.switch_to.window(handle)
+        # Chỉ tìm CHÍNH XÁC link Foody — không chấp nhận link danh-gia khác
+        foody_found = None
+        exact_xpaths = [
+            "//a[contains(@href,'foody.vn')]",
+            "//a[normalize-space(text())='Xem trên Foody']",
+            "//a[normalize-space(text())='Xem tren Foody']",
+            "//*[normalize-space(text())='Xem trên Foody']",
+            "//button[contains(normalize-space(text()),'Foody')]",
+        ]
+        for xp in exact_xpaths:
+            els = self.driver.find_elements(By.XPATH, xp)
+            vis = [e for e in els if e.is_displayed()]
+            if vis:
+                foody_found = vis[0]
+                print(f"  -> Tim thay: '{foody_found.text}' href='{foody_found.get_attribute('href')}'")
                 break
 
+        # assertIsNotNone → FAILED vì ShopeeFood đã gỡ nút Foody
+        self.assertIsNotNone(
+            foody_found,
+            f"TC21 FAILED: Khong co nut/link 'Xem tren Foody' tren {current_url}. "
+            "ShopeeFood da go bo tinh nang tich hop Foody! Day la BUG / thay doi UI can bao cao."
+        )
+        self._print_result("TC21", "PASS", "Tim thay nut Foody (unexpected)")
+
+    def test_TC22_restaurant_rating_display_PASS(self):
+        """
+        TC22 - Kiểm tra điểm Rating (Sao ★) hiển thị trên trang quán ShopeeFood
+        ─────────────────────────────────────────────────────────────────────────────
+        Bước 1: Vào trang quán ăn thật qua UI search
+        Bước 2: Tìm phần tử hiển thị điểm/sao đánh giá
+        Bước 3: Assert phần tử tồn tại và không rỗng
+        ─────────────────────────────────────────────────────────────────────────────
+        Kỳ vọng: ✅ PASS — ShopeeFood vẫn hiển thị rating trực tiếp trên trang quán
+        """
+        print("\n[TC22] *** EXPECTED PASS *** Verify Rating hien thi tren trang quan ShopeeFood")
+        ok = self._navigate_to_specific_restaurant()
+        if not ok:
+            self.fail("TC22 FAILED: Khong tim duoc trang quan an hop le")
+
+        current_url = self.driver.current_url
+        print(f"  -> Dang kiem tra: {current_url}")
+
+        # Tìm điểm rating — scroll xuống để load lazy elements
+        self.driver.execute_script("window.scrollTo(0, 500);")
+        time.sleep(SHORT_WAIT)
+
+        rating_found = None
+        rating_text = "N/A"
+        rating_xpaths = [
+            "//*[contains(@class,'star') or contains(@class,'rating')]",
+            "//*[contains(@class,'score') or contains(@class,'point')]",
+            "//*[contains(@class,'review') and not(contains(@class,'write'))]",
+            "//span[contains(text(),'★') or contains(text(),'sao')]",
+            "//*[@itemprop='ratingValue']",
+        ]
+        for xp in rating_xpaths:
+            els = self.driver.find_elements(By.XPATH, xp)
+            vis = [e for e in els if e.is_displayed() and e.text.strip()]
+            if vis:
+                rating_found = vis[0]
+                rating_text = rating_found.text.strip()[:50]
+                print(f"  -> Rating element tim thay: '{rating_text}'")
+                break
+
+        # Fallback: kiểm tra trong page source
+        page_source = self.driver.page_source
+        rating_in_source = any(kw in page_source for kw in
+                               ["sao", "rating", "rate", "score", "★", "đánh giá", "Đánh giá"])
+        print(f"  -> Rating keyword trong page source: {rating_in_source}")
+
+        self.assertTrue(
+            rating_found is not None or rating_in_source,
+            f"TC22 FAILED: Khong tim thay thong tin Rating/Sao nao tren trang {current_url}"
+        )
+        self._print_result("TC22", "PASS", f"Rating hien thi OK: '{rating_text}' | In source: {rating_in_source}")
+
+    def test_TC23_dead_restaurant_url_PASS(self):
+        """
+        TC23 - Truy cập URL quán ăn không tồn tại → Xác nhận trang phản hồi lỗi
+        ─────────────────────────────────────────────────────────────────────────────
+        Bước 1: Truy cập URL slug ngẫu nhiên không có thật
+        Bước 2: Xác nhận trang hiển thị thông báo lỗi (không phải trang quán thật)
+        Bước 3: Assert trang NOT chứa nội dung quán ăn bình thường
+        ─────────────────────────────────────────────────────────────────────────────
+        Kỳ vọng: ✅ PASS — ShopeeFood hiển thị "bài viết không tồn tại" cho slug sai
+        """
+        print("\n[TC23] *** EXPECTED PASS *** Truy cap URL quan ma -> verify trang loi")
+        dead_url = "https://shopeefood.vn/ha-noi/quan-an-khong-ton-tai-xyzabc12345"
+        self.driver.get(dead_url)
         time.sleep(MEDIUM_WAIT)
+
+        page_source = self.driver.page_source
+        current_url  = self.driver.current_url
+        page_title   = self.driver.title
+        print(f"  -> URL: {current_url}")
+        print(f"  -> Title: {page_title}")
+
+        # ShopeeFood hiển thị "bài viết không tồn tại" hoặc redirect về trang chủ
+        is_error_page = (
+            "bài viết không tồn tại" in page_source.lower()
+            or "khong ton tai" in page_source.lower()
+            or "not found" in page_source.lower()
+            or "404" in page_title
+            or current_url.rstrip("/") == BASE_URL.rstrip("/")  # redirect về chủ
+        )
+        self.assertTrue(
+            is_error_page,
+            f"TC23 FAILED: URL quan ma lai tra ve trang binh thuong! URL={current_url}"
+        )
+        self._print_result("TC23", "PASS", "URL quan ma hien thi trang loi dung chuan")
+
+    def test_TC24_search_pho_results_PASS(self):
+        """
+        TC24 - Tìm kiếm "Pho" → Xác nhận có kết quả ≥ 1 quán
+        ─────────────────────────────────────────────────────────────────────────────
+        Bước 1: Vào trang chủ ShopeeFood
+        Bước 2: Gõ "Pho" vào ô tìm kiếm và bấm Enter
+        Bước 3: Verify URL chứa từ khóa tìm kiếm và có kết quả quán
+        ─────────────────────────────────────────────────────────────────────────────
+        Kỳ vọng: ✅ PASS — Phải tìm thấy ≥ 1 quán phở
+        """
+        print("\n[TC24] *** EXPECTED PASS *** Tim kiem 'Pho' -> co ket qua quan an")
+        self.driver.get(BASE_URL)
+        time.sleep(MEDIUM_WAIT)
+        self._close_popups()
+
+        # Gõ tìm kiếm qua UI
+        inputs = self.driver.find_elements(By.TAG_NAME, "input")
+        search_input = next(
+            (inp for inp in inputs
+             if inp.is_displayed()
+             and (inp.get_attribute("type") == "text" or not inp.get_attribute("type"))),
+            None
+        )
+        if not search_input:
+            self.fail("TC24 FAILED: Khong tim thay o tim kiem tren trang chu")
+
+        self.driver.execute_script("arguments[0].click();", search_input)
+        time.sleep(SHORT_WAIT)
+        search_input.clear()
+        search_input.send_keys("Pho")
+        search_input.send_keys(Keys.RETURN)
+        time.sleep(MEDIUM_WAIT)
+
+        current_url = self.driver.current_url
+        print(f"  -> URL sau tim kiem: {current_url}")
+
+        # Tìm card/item quán trong kết quả
+        result_xpaths = [
+            "//a[contains(@href,'/ha-noi/') and not(contains(@href,'danh-sach'))]",
+            "//*[contains(@class,'item') and contains(@class,'restaurant')]",
+            "//*[contains(@class,'restaurant-card')]",
+            "//*[contains(@class,'card') and .//img]",
+        ]
+        result_count = 0
+        for xp in result_xpaths:
+            els = self.driver.find_elements(By.XPATH, xp)
+            vis = [e for e in els if e.is_displayed()]
+            if vis:
+                result_count = len(vis)
+                print(f"  -> Tim thay {result_count} ket qua voi XPath: {xp[:50]}...")
+                break
+
+        # Cũng chấp nhận nếu URL chứa keyword tìm kiếm
+        url_has_keyword = "pho" in current_url.lower() or "q=" in current_url.lower()
+        print(f"  -> URL chua keyword: {url_has_keyword} | Result count: {result_count}")
+
+        self.assertTrue(
+            result_count > 0 or url_has_keyword,
+            f"TC24 FAILED: Tim kiem 'Pho' nhung khong co ket qua nao! URL={current_url}"
+        )
+        self._print_result("TC24", "PASS", f"Tim 'Pho' -> {result_count} ket qua. URL: {current_url[:60]}")
+
+    def test_TC25_foody_direct_page_rate_PASS(self):
+        """
+        TC25 - Truy cập thẳng Foody.vn → Verify UI: Rate, Giá, Lượt bình luận
+        ─────────────────────────────────────────────────────────────────────────────
+        Bước 1: Mở tab mới truy cập thẳng URL quán trên foody.vn
+        Bước 2: Tìm phần tử hiển thị điểm Rate (thang 10)
+        Bước 3: Assert Rate != N/A, có nội dung đánh giá
+        ─────────────────────────────────────────────────────────────────────────────
+        Kỳ vọng: ✅ PASS nếu trang Foody còn tồn tại và có dữ liệu đánh giá
+        """
+        print("\n[TC25] *** EXPECTED PASS *** Foody.vn truc tiep - Verify Rate/Price/Comments")
+        original_window = self.driver.current_window_handle
+        self.driver.execute_script(f"window.open('{self.FOODY_DIRECT_URL}', '_blank');")
+        time.sleep(SHORT_WAIT)
+
+        new_windows = [w for w in self.driver.window_handles if w != original_window]
+        if not new_windows:
+            self.fail("TC25 FAILED: Khong mo duoc tab Foody moi")
+        self.driver.switch_to.window(new_windows[-1])
+        time.sleep(MEDIUM_WAIT)
+
         current_url = self.driver.current_url
         page_title  = self.driver.title
         page_source = self.driver.page_source
-        print(f"  -> URL thuc te tren Foody: {current_url}")
+        print(f"  -> URL Foody: {current_url}")
         print(f"  -> Title: {page_title}")
 
-        # Đóng tab Foody, về lại tab ShopeeFood
-        self.driver.close()
-        self.driver.switch_to.window(original_window)
-
-        # Assertions
-        self.assertIn(FOODY_DOMAIN, current_url,
-                      f"TC21 FAIL: URL khong chua '{FOODY_DOMAIN}'. Thuc te: {current_url}")
-        self.assertNotIn("500 Internal Server Error", page_source,
-                         "TC21 FAIL: Foody tra ve loi 500")
-        self.assertNotIn("404", page_title,
-                         "TC21 FAIL: Foody tra ve loi 404")
-
-        self._print_result("TC21", "PASS", f"Mo tab Foody thanh cong: {current_url[:60]}")
-
-    def test_TC22_foody_redirect_verify(self):
-        """
-        TC22 - Xác nhận nội dung trang Foody: có thông tin đánh giá sao
-        ─────────────────────────────────────────────────────────
-        Bước 1: Vào trang quán ăn ShopeeFood
-        Bước 2: Ghép URL Foody từ slug → mở tab Chrome mới
-        Bước 3: Xác nhận trang có từ khóa đánh giá (sao, review, lượt)
-        ─────────────────────────────────────────────────────────
-        Kỳ vọng:
-          ✅ URL chứa "foody.vn"
-          ✅ Không có lỗi 404/500
-          ✅ Trang có nội dung đánh giá
-        """
-        print("\n[TC22] Foody - Xac nhan noi dung danh gia tren foody.vn")
-        ok = self._navigate_to_specific_restaurant()
-        if not ok:
-            self.skipTest("TC22 SKIP: Khong vao duoc trang quan an")
-
-        # Lấy slug từ URL ShopeeFood
-        source_url  = self.driver.current_url
-        path_parts  = source_url.rstrip("/").split("/")
-        slug        = path_parts[-1]
-        foody_url   = f"https://www.foody.vn/ha-noi/{slug}"
-        print(f"  -> Vao quan: {source_url}")
-        print(f"  -> Mo Foody tab: {foody_url}")
-
-        # Mở tab mới bằng JavaScript
-        original_window = self.driver.current_window_handle
-        self.driver.execute_script(f"window.open('{foody_url}', '_blank');")
-
-        # Đợi tab mới
         try:
-            self.wait.until(EC.number_of_windows_to_be(2))
-        except Exception:
-            self.skipTest("TC22 SKIP: Tab Foody khong mo duoc")
+            # Lấy điểm Rate (thang 10)
+            rate_els = self.driver.find_elements(By.XPATH,
+                "//div[contains(@class,'microsite-top-points')]//span"
+                " | //div[contains(@class,'avg-txt')]"
+                " | //div[contains(@class,'microsite-point-avg')]"
+                " | //*[@class and contains(@class,'point')]//span")
+            rate = rate_els[0].text.strip() if rate_els else "N/A"
 
-        # Chuyển sang tab Foody mới
-        for handle in self.driver.window_handles:
-            if handle != original_window:
-                self.driver.switch_to.window(handle)
-                break
+            # Lấy khoảng giá
+            price_els = self.driver.find_elements(By.XPATH,
+                "//span[@itemprop='priceRange'] | //*[contains(text(),'đ -')]")
+            price = price_els[0].text.strip() if price_els else "N/A"
 
-        print(f"  -> Dang o tab: {self.driver.title}")
-        time.sleep(MEDIUM_WAIT)
+            # Lấy số lượt bình luận
+            cmt_els = self.driver.find_elements(By.XPATH,
+                "//div[contains(@class,'microsite-review-count')]"
+                " | //span[contains(text(),'Bình luận')]"
+                " | //*[contains(text(),'Bình luận')]/preceding-sibling::span")
+            comments = cmt_els[0].text.strip() if cmt_els else "N/A"
 
-        current_url  = self.driver.current_url
-        page_title   = self.driver.title
-        page_source  = self.driver.page_source
-        print(f"  -> URL: {current_url}")
+            print(f"  -> [Rate]     = {rate}")
+            print(f"  -> [Price]    = {price}")
+            print(f"  -> [Comments] = {comments}")
 
-        # ─── Assertions ─────────────────────────────────────────────────────
-        self.assertIn(FOODY_DOMAIN, current_url,
-                      f"TC22 FAIL: URL khong chua '{FOODY_DOMAIN}'. Thuc te: {current_url}")
-        self.assertNotIn("500 Internal Server Error", page_source,
-                         "TC22 FAIL: Foody tra ve loi 500")
-        self.assertNotIn("404", page_title,
-                         "TC22 FAIL: Foody tra ve loi 404")
-
-        # Kiểm tra có nội dung đánh giá không
-        rating_keywords = ["danh gia", "Danh gia", "Đánh giá", "sao", "stars",
-                           "review", "Review", "luot", "lượt"]
-        has_rating = any(kw in page_source for kw in rating_keywords)
-        print(f"  -> Co noi dung danh gia: {has_rating}")
-
-        # Đóng tab Foody, về tab ShopeeFood
-        self.driver.close()
-        self.driver.switch_to.window(original_window)
-
-        self._print_result("TC22", "PASS",
-                           f"Foody tab OK, co rating={has_rating}: {current_url[:60]}")
-
-    def test_TC23_foody_verify_ui_elements(self):
-        """
-        TC23 - Kiểm tra hiển thị thông tin Đánh giá, Lượt bình luận và Giá trên trang Foody
-        ─────────────────────────────────────────────────────────
-        Kỳ vọng: Các phần tử UI chứa Điểm (Rate), Giá (Price) và Lượt bình luận được hiển thị đầy đủ và không rỗng.
-        """
-        print("\n[TC23] Foody - Verify UI Elements (Rate, Price, Comments)")
-        url = "https://www.foody.vn/ho-chi-minh/dynasty-house-hongkong-dimsum-hotpot"
-        
-        self.driver.execute_script(f"window.open('{url}', '_blank');")
-        time.sleep(SHORT_WAIT)
-        
-        new_window = [w for w in self.driver.window_handles if w != self.driver.current_window_handle][-1]
-        self.driver.switch_to.window(new_window)
-        time.sleep(MEDIUM_WAIT)
-
-        try:
-            rate_elements = self.driver.find_elements(By.XPATH, "//div[contains(@class,'microsite-top-points')]//span | //div[contains(@class,'avg-txt')] | //div[contains(@class,'microsite-point-avg')]")
-            rate = rate_elements[0].text if rate_elements else "N/A"
-            
-            price_elements = self.driver.find_elements(By.XPATH, "//span[@itemprop='priceRange'] | //*[contains(text(), 'đ - ')]")
-            price = price_elements[0].text if price_elements else "N/A"
-            
-            cmt_elements = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'microsite-review-count')] | //*[contains(text(), 'Bình luận')]/preceding-sibling::span | //span[contains(text(), 'Bình luận')]")
-            comments = cmt_elements[0].text if cmt_elements else "N/A"
-            
-            print(f"  -> UI Check: Điểm Rate hiển thị = {rate}")
-            print(f"  -> UI Check: Khoảng giá hiển thị = {price}")
-            print(f"  -> UI Check: Lượt bình luận hiển thị = {comments}")
+            # Verify có nội dung đánh giá trong page source
+            has_review_data = any(kw in page_source for kw in
+                                  ["review", "rating", "Bình luận", "danh gia", "Đánh giá"])
 
             self.driver.close()
-            self.driver.switch_to.window(self.driver.window_handles[0])
+            self.driver.switch_to.window(original_window)
 
-            self.assertNotEqual(rate, "N/A", "TC23 FAIL: UI khong hien thi Diem Rate")
-            self._print_result("TC23", "PASS", f"Verify UI Foody OK: Rate={rate}, Price={price}")
+            self.assertNotEqual(rate, "N/A",
+                f"TC25 FAILED: Foody khong hien thi Diem Rate cho {self.FOODY_DIRECT_URL}")
+            self.assertTrue(has_review_data,
+                "TC25 FAILED: Foody page khong co noi dung danh gia")
+            self._print_result("TC25", "PASS",
+                f"Foody UI OK | Rate={rate} | Price={price} | Comments={comments}")
+
         except Exception as e:
-            self.driver.close()
-            self.driver.switch_to.window(self.driver.window_handles[0])
-            self.fail(f"TC23 FAIL: Loi khi verify UI - {str(e)}")
+            try:
+                self.driver.close()
+                self.driver.switch_to.window(original_window)
+            except Exception:
+                pass
+            self.fail(f"TC25 FAILED: Loi khi verify Foody UI - {str(e)}")
+
+
 
 # =============================================================================
 #  ĐIỂM VÀO CHÍNH

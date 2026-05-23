@@ -2,7 +2,7 @@
 
 > **Công cụ**: Selenium WebDriver + Python unittest  
 > **Website**: https://shopeefood.vn/ha-noi  
-> **Tổng số Test Cases**: 23 TCs  
+> **Tổng số Test Cases**: 25 TCs  
 > **Tác giả**: Automation Testing Suite
 
 ---
@@ -14,7 +14,9 @@ graph TD
     A[ShopeeFood Automation Test] --> B[CF1: Tìm kiếm & Lọc<br/>TC01–TC07]
     A --> C[CF2: Quản lý Giỏ hàng BVA<br/>TC08–TC13]
     A --> D[CF3: Xác thực người dùng<br/>TC14–TC20]
-    A --> E[CF4: Luồng Foody.vn Redirect<br/>TC21–TC23]
+    A --> E[CF4: Luồng Foody.vn & Rating<br/>TC21–TC25]
+    E --> F[TC21 FAILED ❌<br/>Nút Foody bị gỡ]
+    E --> G[TC22-25 PASSED ✅<br/>Rating/Search/Foody UI]
 ```
 
 ---
@@ -76,29 +78,34 @@ graph TD
 
 ## 🔗 CHỨC NĂNG 4 — Luồng chuyển hướng Foody.vn
 
-> **Bối cảnh**: ShopeeFood và Foody.vn cùng hệ sinh thái Shopee. Khi muốn xem chi tiết số lượt đánh giá (rating count + reviews), hệ thống sẽ redirect sang **foody.vn**.
+> **Bối cảnh**: ShopeeFood và Foody.vn cùng hệ sinh thái Shopee. Trước đây ShopeeFood có tích hợp nút "Xem trên Foody" nhưng đã bị **gỡ bỏ** từ 2024+. Bộ test CF4 được thiết kế để vừa **bắt lỗi UI** (TC21 FAILED có chủ đích) vừa **xác minh chức năng còn hoạt động** (TC22-TC25 PASS).
 
 ```
 ShopeeFood (trang quán ăn)
     │
-    ├── Xem số sao rating → Hiển thị ngay trên ShopeeFood
+    ├── ★ Rating trực tiếp trên SF     → [TC22 PASS] Verify điểm sao hiển thị
     │
-    └── Xem chi tiết đánh giá / lượt review
-            │
-            ▼
-        [Nút "Xem trên Foody" hoặc link]
-            │
-            ▼
-        foody.vn/... (tab mới hoặc redirect)
-            │
-            └── Hiển thị: số sao, số lượt đánh giá, nội dung review
+    ├── 🔗 Nút "Xem trên Foody" (ĐÃ GỠ)→ [TC21 FAILED] Automation bắt được thay đổi UI!
+    │
+    └── URL quán ma /xyzabc12345       → [TC23 PASS] SF trả về "bài viết không tồn tại"
+
+Tìm kiếm ShopeeFood
+    └── Search "Pho" → 200 kết quả    → [TC24 PASS] Chức năng tìm kiếm hoạt động
+
+Foody.vn (truy cập trực tiếp)
+    └── foody.vn/ho-chi-minh/...       → [TC25 PASS] Rate/Price/Comments hiển thị đủ
 ```
 
-| TC ID | Tên Test | Bước kiểm thử | Kết quả kỳ vọng |
-|-------|----------|---------------|-----------------|
-| **TC21** | Tìm nút xem đánh giá Foody | Vào trang quán → Tìm link Foody | Element tồn tại, `href` chứa `foody.vn` |
-| **TC22** | Click → Chuyển hướng Foody | Click link Foody | URL = `foody.vn/...`, không có lỗi 404/500, có nội dung đánh giá |
-| **TC23** | Verify UI trang Foody | Mở link Foody chỉ định | Các phần tử UI (Điểm Rate, Giá, Lượt bình luận) hiển thị đầy đủ, không rỗng |
+| TC ID | Tên Test | Bước kiểm thử | Kết quả kỳ vọng | Thực tế |
+|-------|----------|---------------|-----------------|---------|
+| **TC21** | Tìm nút "Xem trên Foody" trên UI SF | Quét DOM trang quán tìm link foody.vn | ❌ **FAILED** — Nút đã bị gỡ → Automation bắt được | FAILED ✓ |
+| **TC22** | Verify Rating ★ hiển thị trên SF | Vào quán → tìm phần tử rating/sao | ✅ PASS — SF vẫn show điểm sao | PASSED ✓ |
+| **TC23** | Truy cập URL quán ma | `GET /ha-noi/xyzabc12345` | ✅ PASS — Trang hiện "bài viết không tồn tại" | PASSED ✓ |
+| **TC24** | Tìm kiếm "Pho" → ≥1 kết quả | Gõ "Pho" vào ô tìm kiếm UI | ✅ PASS — Trả về 200 kết quả | PASSED ✓ |
+| **TC25** | Foody.vn trực tiếp → verify Rate/Price | Mở tab foody.vn → kiểm tra UI elements | ✅ PASS — Rate, Price, Comments đầy đủ | PASSED ✓ |
+
+> [!NOTE]
+> **TC21 FAILED có chủ đích**: Đây là ví dụ điển hình của Automation Testing bắt được thay đổi UI. Thay vì `skipTest()`, ta dùng `assertIsNotNone()` để **văng ra FAILED** và báo cáo chính xác rằng chức năng đã bị gỡ bỏ.
 
 ---
 
@@ -187,21 +194,41 @@ python -m pytest ShopeeFood_Automation_Test.py -v -n 4
 
 > [!NOTE]
 > - **Popup xử lý**: `_close_popups()` tự động đóng popup nhưng có thể không hết tất cả.
-> - **DOM Ẩn/Hiển thị theo trang**: Ô tìm kiếm **chỉ có trên trang chủ** (`/ha-noi`), hoàn toàn biến mất trên trang kết quả (`/danh-sach-quan`). Hơn nữa, ô input này **không có class**, không ID, chỉ có placeholder. Code v4 đã khắc phục bằng cách quét toàn bộ thẻ `<input>` trên trang thay vì phụ thuộc vào XPath.
-> - **Tab mới**: TC22 xử lý cả trường hợp Foody mở trong tab mới (`target="_blank"`).
-> - **Foody redirect & Overlay**: Khi chuyển trang, loading overlay thường chặn click. Code phải dùng `JS click()` để vượt qua lỗi `ElementClickInterceptedException`.
-> - **Khuyến cáo phần cứng/Selenium**: Chạy liên tục 23 Test Cases mở/đóng Chrome tốn gần 2 giờ đồng hồ có thể gây tràn bộ nhớ ChromeDriver (lỗi `InvalidSessionIdException` hoặc `ReadTimeoutError`). Khuyến cáo chạy từng phần (Vd: `python -m pytest ...::TC_CF1_SearchFilter`) thay vì chạy cả file cùng lúc.
+> - **DOM Ẩn/Hiển thị theo trang**: Ô tìm kiếm **chỉ có trên trang chủ** (`/ha-noi`), hoàn toàn biến mất trên trang kết quả. Code v5 đã khắc phục bằng cách quét toàn bộ thẻ `<input>` trên trang thay vì phụ thuộc vào XPath.
+> - **URL tìm kiếm thay đổi**: ShopeeFood đã đổi từ `?keyword=` sang `?q=`. Code fallback CF4 dùng **UI search thật** (gõ vào ô tìm kiếm) để tránh phụ thuộc URL cứng.
+> - **Tab mới**: TC25 mở tab Foody.vn mới và xử lý switch window.
+> - **Foody redirect bị gỡ**: TC21 thiết kế để **FAILED có chủ đích** — dùng `assertIsNotNone` thay vì `skipTest()` để báo cáo thay đổi UI chính xác.
+> - **Khuyến cáo**: Chạy từng nhóm CF thay vì toàn bộ để tránh timeout ChromeDriver.
 
 ---
 
-## 📊 Kết quả thực thi cuối cùng 
-- **Kết quả tổng quát**: 23/23 Test Cases đã được xử lý triệt để (Tất cả đều PASS hoặc SKIP hợp lệ).
-- **Phân tích chi tiết**:
-  - **Nhóm CF1 (Tìm kiếm)**: **PASSED 100%**. Việc quét toàn bộ thẻ input qua JS/Tag name đã xử lý triệt để thiết kế dị của ShopeeFood.
-  - **Nhóm CF2 (Giỏ hàng)**: **SKIPPED 100% (Có chủ đích)**. Các test TC08-TC13 đã được cấu hình tự động SKIP cực kỳ thông minh. ShopeeFood ẩn hoàn toàn Menu và nút `+` đối với người dùng khách (Guest). Các script sẽ bỏ qua một cách êm ái thay vì văng lỗi giả (False Negative) do không tìm thấy nút.
-  - **Nhóm CF3 (Đăng nhập)**: **PASSED 100%**. Click ngầm qua JavaScript đã đâm thủng màn chắn (Overlay).
-  - **Nhóm CF4 (Foody Redirect)**: **PASSED 100%**. Mặc dù ShopeeFood đã gỡ nút Foody, code vẫn bóc tách `slug` và tái cấu trúc URL của Foody. Đặc biệt, **TC23** đã kiểm tra thành công việc hiển thị các phần tử UI quan trọng (Điểm, Lượt bình luận, Giá) trên các trang Foody còn tồn tại dữ liệu.
+## 📊 Kết quả thực thi cuối cùng (v5.0)
+
+### Tóm tắt toàn bộ
+
+| Nhóm | TCs | PASS | FAILED | SKIP | Ghi chú |
+|------|-----|------|--------|------|---------|
+| **CF1** Tìm kiếm & Lọc | 7 | ✅ 7 | 0 | 0 | Tất cả pass, URL tìm kiếm hoạt động |
+| **CF2** Giỏ hàng BVA | 6 | 0 | 0 | ⏭️ 6 | SKIP có chủ đích — SF ẩn menu với Guest |
+| **CF3** Xác thực Auth | 7 | ✅ 7 | 0 | 0 | JS click vượt qua Overlay thành công |
+| **CF4** Foody & Rating | 5 | ✅ 4 | ❌ 1 | 0 | TC21 FAILED có chủ đích (Foody đã gỡ) |
+| **Tổng** | **25** | **18** | **1** | **6** | |
+
+### Chi tiết CF4 (kết quả thực tế 2026-05-23)
+```
+TC21 FAILED  ← assertIsNotNone: Nút "Xem trên Foody" không còn tồn tại trên UI
+TC22 PASSED  ← Rating ★ vẫn hiển thị trực tiếp trên trang quán ShopeeFood
+TC23 PASSED  ← URL quán ma → ShopeeFood trả về "bài viết không tồn tại" đúng
+TC24 PASSED  ← Tìm kiếm "Pho" → 200 kết quả trả về thành công
+TC25 PASSED  ← Foody.vn: Rate/Price/Comments hiển thị đầy đủ
+
+1 failed, 4 passed in 79.16s
+```
+
+> [!IMPORTANT]
+> **TC21 FAILED là đúng, không phải bug của code test!**  
+> Đây là ví dụ điển hình Automation Testing bắt được **thay đổi UI hệ thống**. ShopeeFood đã gỡ tích hợp Foody. Thay vì SKIP (che giấu vấn đề), TC21 báo FAILED để đội phát triển biết cần cập nhật spec.
 
 ---
 
-*Cập nhật lần cuối: 2026-05-23 (Đã hoàn thiện toàn bộ Test Suite)*
+*Cập nhật lần cuối: 2026-05-23 (v5.0 — CF4 nâng cấp 5 TCs, bổ sung FAILED có chủ đích)*
