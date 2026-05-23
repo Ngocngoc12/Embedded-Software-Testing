@@ -627,6 +627,21 @@ class TC_CF2_CartManagement(ShoeeFoodTestBase):
                 except Exception:
                     continue
 
+            # Chiến lược 3: Fallback click thẳng vào món ăn (với Guest, ShopeeFood sẽ hiện form Login)
+            try:
+                dish_selectors = [
+                    (By.XPATH, "//div[contains(@class,'item')]//img"),
+                    (By.XPATH, "//div[contains(@class,'dish')]"),
+                    (By.XPATH, "//h2[contains(@class,'name')] | //h3[contains(@class,'name')]")
+                ]
+                for sel in dish_selectors:
+                    els = self.driver.find_elements(*sel)
+                    visible = [e for e in els if e.is_displayed()]
+                    if visible:
+                        return visible[0]
+            except Exception:
+                pass
+
         return None
 
     def _get_cart_count(self):
@@ -811,8 +826,9 @@ class TC_CF2_CartManagement(ShoeeFoodTestBase):
             self.assertNotEqual(actual, "-1",
                                "TC11 FAIL: He thong chap nhan so luong am -1!")
         else:
-            # Giao diện chỉ dùng nút +/- → không thể nhập số âm
-            print("  -> Giao dien chi co nut +/- -> Khong the nhap so am (PASS)")
+            # Giao diện chỉ dùng nút +/- hoặc bị ẩn hoàn toàn (Guest)
+            print("  -> Giao dien bi an hoac chi co nut +/-")
+            self.fail("TC11 FAIL: He thong chan hoan toan quyen them mon (can dang nhap), khong the nhap so am!")
 
         page_source = self.driver.page_source
         self.assertNotIn("500 Internal Server Error", page_source)
@@ -923,7 +939,7 @@ class TC_CF2_CartManagement(ShoeeFoodTestBase):
                 self.assertGreaterEqual(tong_tien, tien_mon, f"LỖI TOÁN HỌC! Tiền món {tien_mon} nhưng Tổng tiền {tong_tien}")
                 print(f"  -> Pass logic tính tiền! Tiền món: {tien_mon}, Tổng: {tong_tien}. Nghỉ chơi với cái QR được rồi.")
             else:
-                print("  -> Khong du du lieu de tinh toan tien. Van PASS buoc hien thi.")
+                self.fail("TC13 FAIL: Khong du du lieu de tinh toan tien (gio hang bi an vi chua dang nhap).")
         except Exception as e:
             self.fail(f"TC13 FAIL: Khong the lay gia tien - {str(e)}")
 
