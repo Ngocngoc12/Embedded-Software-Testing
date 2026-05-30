@@ -1,234 +1,242 @@
-# 📋 TÀI LIỆU TEST CASES - SHOPEEFOOD AUTOMATION TESTING
+# Bộ Test Tự Động ShopeeFood
 
-> **Công cụ**: Selenium WebDriver + Python unittest  
-> **Website**: https://shopeefood.vn/ha-noi  
-> **Tổng số Test Cases**: 25 TCs  
-> **Tác giả**: Automation Testing Suite
+Kiểm thử giao diện người dùng tự động cho [ShopeeFood Việt Nam](https://shopeefood.vn) sử dụng **Python + Selenium WebDriver + unittest**, có thể chạy bằng **pytest**.
 
 ---
 
-## 📌 Tổng quan bộ kiểm thử
+## Cấu Trúc Dự Án
 
-```mermaid
-graph TD
-    A[ShopeeFood Automation Test] --> B[CF1: Tìm kiếm & Lọc<br/>TC01–TC07]
-    A --> C[CF2: Quản lý Giỏ hàng BVA<br/>TC08–TC13]
-    A --> D[CF3: Xác thực người dùng<br/>TC14–TC20]
-    A --> E[CF4: Luồng Foody.vn & Rating<br/>TC21–TC25]
-    E --> F[TC21 FAILED ❌<br/>Nút Foody bị gỡ]
-    E --> G[TC22-25 PASSED ✅<br/>Rating/Search/Foody UI]
+```
+Embedded-Software-Testing/
+├── ShopeeFood_Automation_Test.py   # File test chính (15 test case)
+└── README.md
 ```
 
 ---
 
-## 🔍 CHỨC NĂNG 1 — Tìm kiếm & Lọc (Search & Filter)
+## Công Nghệ Sử Dụng
 
-| TC ID | Tên Test | Đầu vào | Kết quả kỳ vọng | Kỹ thuật |
-|-------|----------|---------|-----------------|----------|
-| **TC01** | Tìm kiếm từ khóa hợp lệ | `"Trà sữa"` | Có ≥ 1 kết quả, URL/title chứa keyword | Equivalence Partitioning (lớp hợp lệ) |
-| **TC02** | Từ khóa không tồn tại | `"xyzxyz_khong_ton_tai"` | Hiện "Không tìm thấy kết quả" | Equivalence Partitioning (lớp không hợp lệ) |
-| **TC03** | Ký tự đặc biệt | `"@#$%^&*()"` | Không crash (500), không có lỗi JS | Boundary - ký tự ngoài thông thường |
-| **TC04** | Bỏ trống ô tìm kiếm | `""` (Enter không nhập) | Không crash, xử lý gracefully | Boundary - giá trị rỗng |
-| **TC05** | Lọc theo khu vực | Chọn "Cầu Giấy" | Kết quả hiển thị quán tại khu vực đó | Functional Testing |
-| **TC06** | Lọc và Verify Rating | Rating ≥ 4 sao | Lấy điểm Foody (thang 10), quy đổi về thang 5 và xác minh ≥ 4.0 Sao | Cross-validation |
-| **TC07** | Lọc theo khoảng giá | Chọn khoảng giá | Kết quả đúng khoảng giá | Functional Testing |
+| Thành phần | Chi tiết |
+|---|---|
+| Ngôn ngữ | Python 3.10+ |
+| Framework kiểm thử | `unittest` (tương thích pytest) |
+| Tự động hóa trình duyệt | Selenium WebDriver (Chrome) |
+| Công cụ chạy test | `pytest` |
+| Báo cáo | `pytest-html` |
 
 ---
 
-## 🛒 CHỨC NĂNG 2 — Quản lý Giỏ hàng (Cart — Boundary Value Analysis)
+## Cài Đặt
 
-### Bảng phân tích giá trị biên (BVA) cho số lượng món
-
-| Giá trị | Loại biên | TC | Kỳ vọng |
-|---------|-----------|-----|---------|
-| `-1` | Dưới min - **INVALID** | TC11 | Từ chối / báo lỗi, không chấp nhận |
-| `0` | Biên min (xóa) | TC10 | Xóa món khỏi giỏ |
-| `1` | Min hợp lệ | TC08 | Thêm 1 món thành công |
-| `2–98` | Nội biên hợp lệ | TC09 | Tăng số lượng thành công |
-| `99` | Max hợp lệ | TC12 | Chấp nhận, hiển thị đúng |
-| `100+` | Vượt max - **INVALID** | TC12 | Từ chối / clamp về 99 |
-
-| TC ID | Tên Test | Bước kiểm thử | Kết quả kỳ vọng |
-|-------|----------|---------------|-----------------|
-| **TC08** | Thêm 1 món (biên min = 1) | Click `+` 1 lần | Badge giỏ hàng hiển thị `1`, không lỗi |
-| **TC09** | Tăng số lượng lên giá trị hợp lệ | Click `+` thêm 2 lần (→ 3) | SL tăng đúng, tổng tiền tăng theo |
-| **TC10** | Giảm về 0 → Xóa món | Click `-` đến khi SL = 0 | Món bị xóa khỏi giỏ / xuất hiện popup xác nhận |
-| **TC11** | Nhập số âm `-1` | Nhập trực tiếp vào input | Giá trị `-1` bị từ chối, không cập nhật |
-| **TC12** | Số lượng MAX (99 và 100+) | Nhập `99` → Nhập `100` | `99` được chấp nhận; `100` bị chặn hoặc clamp |
-| **TC13** | Tổng tiền thanh toán chính xác | Thêm N món, vào giỏ | Không có `NaN`/`undefined`, tiền tính đúng |
-
----
-
-## 🔐 CHỨC NĂNG 3 — Xác thực người dùng (Authentication)
-
-| TC ID | Tên Test | Input SĐT/Email | Input Password | Kết quả kỳ vọng |
-|-------|----------|-----------------|----------------|-----------------|
-| **TC14** | Bỏ trống tất cả | *(empty)* | *(empty)* | Hiện lỗi "Vui lòng nhập...", không submit |
-| **TC15** | SĐT quá ngắn (< 10 số) | `"091234"` | `"AnyPass123"` | Lỗi "Số điện thoại không hợp lệ" |
-| **TC16** | SĐT chứa chữ cái | `"09abc12345"` | `"AnyPass123"` | Lỗi "Số điện thoại không hợp lệ" |
-| **TC17** | Mật khẩu sai | `"0901234567"` | `"SaiMatKhau_WRONG!"` | Lỗi "Sai mật khẩu" / không vào được |
-| **TC18** | Email sai định dạng | `"khonghople@"` | `"AnyPass123"` | Lỗi "Email không hợp lệ" |
-| **TC19** | Đăng nhập thành công *(Demo)* | SĐT hợp lệ | Đúng mật khẩu | Chuyển về trang chủ, hiện "Đăng xuất" |
-| **TC20** | Form Đăng ký - validate | Submit rỗng | *(empty)* | Lỗi validate hiện đúng trường |
-
-> [!IMPORTANT]
-> **TC19**: Cần cập nhật `VALID_PHONE` và `VALID_PASSWORD` trong file [ShopeeFood_Automation_Test.py](file:///c:/Users/hoang/Downloads/Tester/ShopeeFood_Automation_Test.py) (phần CẤU HÌNH CHUNG) để test đăng nhập thực.
-
----
-
-## 🔗 CHỨC NĂNG 4 — Luồng chuyển hướng Foody.vn
-
-> **Bối cảnh**: ShopeeFood và Foody.vn cùng hệ sinh thái Shopee. Trước đây ShopeeFood có tích hợp nút "Xem trên Foody" nhưng đã bị **gỡ bỏ** từ 2024+. Bộ test CF4 được thiết kế để vừa **bắt lỗi UI** (TC21 FAILED có chủ đích) vừa **xác minh chức năng còn hoạt động** (TC22-TC25 PASS).
-
-```
-ShopeeFood (trang quán ăn)
-    │
-    ├── ★ Rating trực tiếp trên SF     → [TC22 PASS] Verify điểm sao hiển thị
-    │
-    ├── 🔗 Nút "Xem trên Foody" (ĐÃ GỠ)→ [TC21 FAILED] Automation bắt được thay đổi UI!
-    │
-    └── URL quán ma /xyzabc12345       → [TC23 PASS] SF trả về "bài viết không tồn tại"
-
-Tìm kiếm ShopeeFood
-    └── Search "Pho" → 200 kết quả    → [TC24 PASS] Chức năng tìm kiếm hoạt động
-
-Foody.vn (truy cập trực tiếp)
-    └── foody.vn/ho-chi-minh/...       → [TC25 PASS] Rate/Price/Comments hiển thị đủ
-```
-
-| TC ID | Tên Test | Bước kiểm thử | Kết quả kỳ vọng | Thực tế |
-|-------|----------|---------------|-----------------|---------|
-| **TC21** | Tìm nút "Xem trên Foody" trên UI SF | Quét DOM trang quán tìm link foody.vn | ❌ **FAILED** — Nút đã bị gỡ → Automation bắt được | FAILED ✓ |
-| **TC22** | Verify Rating ★ hiển thị trên SF | Vào quán → tìm phần tử rating/sao | ✅ PASS — SF vẫn show điểm sao | PASSED ✓ |
-| **TC23** | Truy cập URL quán ma | `GET /ha-noi/xyzabc12345` | ✅ PASS — Trang hiện "bài viết không tồn tại" | PASSED ✓ |
-| **TC24** | Tìm kiếm "Pho" → ≥1 kết quả | Gõ "Pho" vào ô tìm kiếm UI | ✅ PASS — Trả về 200 kết quả | PASSED ✓ |
-| **TC25** | Foody.vn trực tiếp → verify Rate/Price | Mở tab foody.vn → kiểm tra UI elements | ✅ PASS — Rate, Price, Comments đầy đủ | PASSED ✓ |
-
-> [!NOTE]
-> **TC21 FAILED có chủ đích**: Đây là ví dụ điển hình của Automation Testing bắt được thay đổi UI. Thay vì `skipTest()`, ta dùng `assertIsNotNone()` để **văng ra FAILED** và báo cáo chính xác rằng chức năng đã bị gỡ bỏ.
-
----
-
-## 🏗️ Kiến trúc code
-
-```
-ShopeeFood_Automation_Test.py
-├── ShoeeFoodTestBase              ← Base class (setUp/tearDown/helpers)
-│   ├── _close_popups()
-│   ├── _find_search_input()
-│   ├── _do_search(keyword)
-│   ├── _open_login_form()
-│   ├── _get_error_message()
-│   └── _print_result()
-│
-├── TC_CF1_SearchFilter            ← CF1: TC01-TC07
-│   └── _has_search_results()
-│
-├── TC_CF2_CartManagement          ← CF2: TC08-TC13
-│   ├── _navigate_to_restaurant()
-│   ├── _click_add_to_cart()
-│   ├── _get_cart_quantity()
-│   └── _get_total_price()
-│
-├── TC_CF3_Authentication          ← CF3: TC14-TC20
-│   ├── _fill_phone_input()
-│   ├── _fill_password_input()
-│   └── _click_submit_login()
-│
-└── TC_CF4_FoodyRedirect           ← CF4: TC21-TC22
-    └── _find_restaurant_with_foody_link()
-```
-
----
-
-## 🚀 Hướng dẫn chạy
-
-### Cài đặt dependencies
 ```bash
-pip install selenium webdriver-manager
+pip install selenium pytest pytest-html
 ```
 
-### Chạy toàn bộ test
+> ChromeDriver phải khớp với phiên bản Chrome đang cài đặt.  
+> Tải tại: https://chromedriver.chromium.org/downloads
+
+---
+
+## Chạy Test
+
+### Chạy toàn bộ test case
 ```bash
 python -m pytest ShopeeFood_Automation_Test.py -v --tb=short
 ```
 
-### Chạy riêng từng chức năng
+### Chạy một class cụ thể
 ```bash
-# CF1: Tìm kiếm & Lọc
 python -m pytest ShopeeFood_Automation_Test.py::TC_CF1_SearchFilter -v
-
-# CF2: Giỏ hàng
 python -m pytest ShopeeFood_Automation_Test.py::TC_CF2_CartManagement -v
-
-# CF3: Auth
 python -m pytest ShopeeFood_Automation_Test.py::TC_CF3_Authentication -v
-
-# CF4: Foody redirect
-python -m pytest ShopeeFood_Automation_Test.py::TC_CF4_FoodyRedirect -v
 ```
 
-### Chạy bằng unittest trực tiếp
+### Chạy một test case cụ thể
 ```bash
-python ShopeeFood_Automation_Test.py
+python -m pytest ShopeeFood_Automation_Test.py::TC_CF3_Authentication::test_TC14_login_success_demo -v -s
 ```
 
-### ⚡ Chạy tối ưu (Parallel & Headless)
-Nếu chạy 22 test tuần tự quá chậm, bạn có thể chạy đa luồng và ẩn trình duyệt:
-1. **Cài đặt pytest-xdist:**
+### Lọc theo từ khóa
 ```bash
-pip install pytest-xdist
+python -m pytest ShopeeFood_Automation_Test.py -k "TC08" -v -s
 ```
-2. **Lệnh chạy 4 luồng song song:**
+
+### Xuất báo cáo HTML
 ```bash
-python -m pytest ShopeeFood_Automation_Test.py -v -n 4
+python -m pytest ShopeeFood_Automation_Test.py -v --html=report.html --self-contained-html
 ```
-*(Lưu ý: Mình đã cấu hình thêm tùy chọn `--headless` và tối ưu Explicit Wait trong file test để chạy ngầm tiết kiệm RAM nhất).*
+
+### Hiển thị output print trong terminal
+```bash
+python -m pytest ShopeeFood_Automation_Test.py -v -s --tb=long
+```
 
 ---
 
-## ⚠️ Lưu ý quan trọng
+## Các Test Case
 
-> [!WARNING]
-> ShopeeFood dùng React/Vue nên selector có thể thay đổi. Nếu test SKIP nhiều, hãy inspect lại trang và cập nhật XPath trong file.
+### CF1 — Tìm kiếm & Lọc (`TC_CF1_SearchFilter`)
 
-> [!NOTE]
-> - **Popup xử lý**: `_close_popups()` tự động đóng popup nhưng có thể không hết tất cả.
-> - **DOM Ẩn/Hiển thị theo trang**: Ô tìm kiếm **chỉ có trên trang chủ** (`/ha-noi`), hoàn toàn biến mất trên trang kết quả. Code v5 đã khắc phục bằng cách quét toàn bộ thẻ `<input>` trên trang thay vì phụ thuộc vào XPath.
-> - **URL tìm kiếm thay đổi**: ShopeeFood đã đổi từ `?keyword=` sang `?q=`. Code fallback CF4 dùng **UI search thật** (gõ vào ô tìm kiếm) để tránh phụ thuộc URL cứng.
-> - **Tab mới**: TC25 mở tab Foody.vn mới và xử lý switch window.
-> - **Foody redirect bị gỡ**: TC21 thiết kế để **FAILED có chủ đích** — dùng `assertIsNotNone` thay vì `skipTest()` để báo cáo thay đổi UI chính xác.
-> - **Khuyến cáo**: Chạy từng nhóm CF thay vì toàn bộ để tránh timeout ChromeDriver.
-
----
-
-## 📊 Kết quả thực thi cuối cùng (v5.0)
-
-### Tóm tắt toàn bộ
-
-| Nhóm | TCs | PASS | FAILED | SKIP | Ghi chú |
-|------|-----|------|--------|------|---------|
-| **CF1** Tìm kiếm & Lọc | 7 | ✅ 7 | 0 | 0 | Tất cả pass, URL tìm kiếm hoạt động |
-| **CF2** Giỏ hàng BVA | 6 | 0 | 0 | ⏭️ 6 | SKIP có chủ đích — SF ẩn menu với Guest |
-| **CF3** Xác thực Auth | 7 | ✅ 7 | 0 | 0 | JS click vượt qua Overlay thành công |
-| **CF4** Foody & Rating | 5 | ✅ 4 | ❌ 1 | 0 | TC21 FAILED có chủ đích (Foody đã gỡ) |
-| **Tổng** | **25** | **18** | **1** | **6** | |
-
-### Chi tiết CF4 (kết quả thực tế 2026-05-23)
-```
-TC21 FAILED  ← assertIsNotNone: Nút "Xem trên Foody" không còn tồn tại trên UI
-TC22 PASSED  ← Rating ★ vẫn hiển thị trực tiếp trên trang quán ShopeeFood
-TC23 PASSED  ← URL quán ma → ShopeeFood trả về "bài viết không tồn tại" đúng
-TC24 PASSED  ← Tìm kiếm "Pho" → 200 kết quả trả về thành công
-TC25 PASSED  ← Foody.vn: Rate/Price/Comments hiển thị đầy đủ
-
-1 failed, 4 passed in 79.16s
-```
-
-> [!IMPORTANT]
-> **TC21 FAILED là đúng, không phải bug của code test!**  
-> Đây là ví dụ điển hình Automation Testing bắt được **thay đổi UI hệ thống**. ShopeeFood đã gỡ tích hợp Foody. Thay vì SKIP (che giấu vấn đề), TC21 báo FAILED để đội phát triển biết cần cập nhật spec.
+| TC | Phương thức | Mô tả | Kỹ thuật | Kết quả mong đợi |
+|---|---|---|---|---|
+| TC01 | `test_TC01_search_valid_keyword` | Tìm kiếm "Trà sữa" | Phân hoạch tương đương (hợp lệ) | Có kết quả, không có lỗi 500 |
+| TC02 | `test_TC02_search_invalid_keyword` | Tìm từ khóa không tồn tại | Phân hoạch tương đương (không hợp lệ) | Không có kết quả / hiển thị trạng thái trống |
+| TC03 | `test_TC03_search_special_characters` | Tìm kiếm `@#$%^&*()` | Biên — ký tự đặc biệt | Không crash, không có lỗi JS |
+| TC04 | `test_TC04_search_empty_input` | Tìm kiếm với ô trống | Biên — giá trị rỗng | Không crash, không có lỗi 500 |
+| TC05 | `test_TC05_filter_tab_ban_chay` | Bấm tab "Bán chạy" | Kiểm thử chức năng | Tab được kích hoạt |
+| TC06 | `test_TC06_filter_tab_danh_gia` | Bấm tab "Đánh giá" + đối chiếu Foody | Chức năng + Đối chiếu chéo | Tab active, đánh giá ≥ 4.0/5 |
+| TC07 | `test_TC07_filter_tab_giao_nhanh` | Bấm tab "Giao nhanh" | Kiểm thử chức năng | Tab active, không có lỗi |
 
 ---
 
-*Cập nhật lần cuối: 2026-05-23 (v5.0 — CF4 nâng cấp 5 TCs, bổ sung FAILED có chủ đích)*
+### CF2 — Giỏ hàng / Tương tác UI (`TC_CF2_CartManagement`)
+
+| TC | Phương thức | Mô tả | Kỹ thuật | Kết quả mong đợi |
+|---|---|---|---|---|
+| TC08 | `test_TC08_scroll_to_qrcode_in_viewport` | Bấm thêm vào giỏ, kiểm tra `id="QRcode"` cuộn vào viewport | Chức năng — Hành vi cuộn trang | `#QRcode` hiển thị đầy đủ trong viewport |
+
+**URL mục tiêu cho TC08:**
+```
+https://shopeefood.vn/ha-noi/tra-sua-tocotoco-trieu-khuc
+```
+
+**Kiểm tra viewport bằng JavaScript `getBoundingClientRect()`:**
+```
+rect.top >= 0 VÀ rect.left >= 0
+VÀ rect.bottom <= viewportHeight VÀ rect.right <= viewportWidth
+```
+
+---
+
+### CF3 — Xác thực (`TC_CF3_Authentication`)
+
+| TC | Phương thức | Mô tả | Đầu vào | Kết quả mong đợi |
+|---|---|---|---|---|
+| TC09 | `test_TC09_login_all_fields_empty` | Gửi form đăng nhập khi tất cả ô trống | (rỗng) | Hiển thị lỗi xác thực |
+| TC10 | `test_TC10_login_phone_too_short_BVA_below_min` | Số điện thoại quá ngắn (BVA dưới min) | `091234` (6 chữ số) | Lỗi: số điện thoại không hợp lệ |
+| TC11 | `test_TC11_login_phone_with_letters_invalid` | Số điện thoại chứa chữ cái (EP lớp không hợp lệ) | `09abc12345` | Lỗi: định dạng không hợp lệ |
+| TC12 | `test_TC12_login_wrong_password` | Sai mật khẩu | `0901234567` + sai mật khẩu | Lỗi: thông tin đăng nhập sai |
+| TC13 | `test_TC13_login_invalid_email_format` | Định dạng email sai (EP không hợp lệ) | `khonghople@` | Lỗi: email không hợp lệ |
+| TC14 | `test_TC14_login_success_demo` | Luồng đăng nhập OTP đầy đủ (người dùng nhập thủ công) | SĐT thật + OTP | `div.user-acc` xuất hiện, URL = trang chủ |
+| TC15 | `test_TC15_register_form_validate` | Gửi form đăng ký khi tất cả ô trống | (rỗng) | Hiển thị lỗi xác thực |
+
+---
+
+## Kiến Trúc
+
+### Phiên Chrome Dùng Chung
+
+Mỗi class test chỉ mở Chrome **một lần** qua `setUpClass` và dùng lại cho tất cả các phương thức test — tránh overhead khởi động trình duyệt mới cho từng test.
+
+```
+setUpClass()        ← Mở Chrome một lần cho mỗi class
+  setUp()           ← Reset về BASE_URL trước mỗi test
+    test_TCxx()     ← Thực thi test
+  tearDown()        ← Không làm gì (giữ trình duyệt mở)
+tearDownClass()     ← Đóng Chrome sau khi chạy hết test trong class
+```
+
+### Các Hàm Hỗ Trợ Base Class
+
+| Hàm hỗ trợ | Mục đích |
+|---|---|
+| `_close_popups()` | Đóng các popup quảng cáo / vị trí |
+| `_find_search_input()` | Tìm ô `<input>` tìm kiếm (polling, thử 5 lần) |
+| `_do_search(keyword)` | Nhập từ khóa và nhấn Enter |
+| `_open_login_form()` | Bấm nút đăng nhập, chờ form xuất hiện |
+| `_get_all_visible_inputs()` | Lấy tất cả ô input đang hiển thị |
+| `_get_error_message()` | Trích xuất thông báo lỗi từ DOM |
+| `_has_search_results()` | Kiểm tra có thẻ kết quả không |
+| `_print_result(tc_id, status, detail)` | In `[PASS/FAIL/SKIP] [TCxx] chi tiết` |
+
+### TC14 — Chi Tiết Luồng Đăng Nhập OTP
+
+```
+driver.get("https://shopeefood.vn/")
+  ↓
+Bấm btn-login
+  ↓
+Bấm .item.phone  →  Cửa sổ popup mới mở ra (gsso.shopeefood.vn/sms_login)
+  ↓
+switch_to.window(popup_handle)
+  ↓
+[Bước SĐT] Kiểm tra button.btn mỗi 0.5s (tối đa 60s)
+  Người dùng nhập số điện thoại → thuộc tính disabled bị xóa → click
+  ↓
+[Bước OTP] Kiểm tra button.btn mỗi 0.5s (tối đa 120s)
+  Người dùng nhập OTP → thuộc tính disabled bị xóa → click
+  ↓
+Popup đóng → switch_to.window(main_window)
+  ↓
+Kiểm tra: div.user-acc.col-auto hiển thị VÀ URL = shopeefood.vn
+```
+
+---
+
+## Cấu Hình
+
+Chỉnh sửa các hằng số ở đầu file `ShopeeFood_Automation_Test.py`:
+
+```python
+BASE_URL        = "https://shopeefood.vn/ha-noi"
+SEARCH_URL      = "https://shopeefood.vn/ha-noi/danh-sach-quan"
+GLOBAL_TIMEOUT  = 15   # giây — timeout của WebDriverWait
+SHORT_WAIT      = 2    # giây
+MEDIUM_WAIT     = 4    # giây
+LONG_WAIT       = 6    # giây
+
+KEYWORD_VALID   = "Tra sua"
+KEYWORD_INVALID = "xyzxyz_khongtonttai_9991"
+KEYWORD_SPECIAL = "@#$%^&*()"
+KEYWORD_EMPTY   = ""
+
+SAMPLE_RESTAURANT_URLS = []   # thêm URL nhà hàng đã biết cho các test CF2
+```
+
+---
+
+## Định Dạng Log
+
+Tất cả output in ra theo định dạng nhất quán:
+
+```
+[TCxx] <mô tả test>
+  -> <bước hoặc thông tin>
+  -> <bước hoặc thông tin>
+  [PASS/FAIL/SKIP] [TCxx] <chi tiết kết quả>
+```
+
+**Ví dụ output:**
+```
+[TC08] Verify page scrolls to id='QRcode' into viewport after clicking add button
+  -> Opening: https://shopeefood.vn/ha-noi/tra-sua-tocotoco-trieu-khuc
+  -> Page loaded: Trà Sữa ToCoToCo Triệu Khúc
+  -> Searching for add-to-cart button...
+  -> Found add button: text='+' class='btn-add-item'
+  -> Clicked add-to-cart button
+  -> Found element id='QRcode': tag=<div>
+  -> Viewport: 1920x1080 px
+  -> QRcode rect: top=200, bottom=400, left=100, right=300
+  -> In viewport: True
+  [PASS] [TC08] id='QRcode' is in viewport (top=200, bottom=400)
+```
+
+---
+
+## Điều Kiện PASS / FAIL / SKIP
+
+| Kết quả | Điều kiện kích hoạt |
+|---|---|
+| **PASS** | Phương thức test chạy bình thường (không có ngoại lệ) |
+| **FAIL** | `self.fail("thông báo")` hoặc `self.assertX(...)` ném `AssertionError` |
+| **SKIP** | `self.skipTest("lý do")` ném `SkipTest` |
+
+---
+
+## Lưu Ý
+
+- **Chế độ headless bị tắt** — ShopeeFood trả về lỗi 403 với Chrome headless.
+- **TC08** yêu cầu trang nhà hàng hiển thị nút thêm vào giỏ hàng. Nếu cần đăng nhập, test sẽ FAIL kèm thông báo rõ ràng.
+- **TC14** yêu cầu người dùng tương tác thủ công: nhập số điện thoại và OTP trong khoảng thời gian chờ (60 giây và 120 giây tương ứng).
+- **TC06** thực hiện đối chiếu chéo bằng cách mở tab Foody.vn. Nếu Foody không có dữ liệu cho nhà hàng đó, bước này sẽ được bỏ qua.
+- **`SAMPLE_RESTAURANT_URLS`** mặc định là rỗng. Thêm các URL nhà hàng ShopeeFood hợp lệ vào đây để tăng độ ổn định của test CF2.
